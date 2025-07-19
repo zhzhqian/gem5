@@ -261,6 +261,7 @@ class BiModeBP(BranchPredictor):
     choicePredictorSize = Param.Unsigned(8192, "Size of choice predictor")
     choiceCtrBits = Param.Unsigned(2, "Bits of choice counters")
 
+
 class YagsBP(BranchPredictor):
     type = "YagsBP"
     cxx_class = "gem5::branch_prediction::YagsBP"
@@ -273,6 +274,9 @@ class YagsBP(BranchPredictor):
     tagCacheSize = Param.Unsigned(8192, "Size of tage ache")
     tagCacheBits = Param.Unsigned(2, "Bits of counter bits of tage cache")
     cacheTagBits = Param.Unsigned(6, "Bits of counter bits of cache tage")
+    instShiftAmt = Param.Unsigned(
+        Parent.instShiftAmt, "Number of bits to shift instructions by"
+    )
 
 
 class TAGEBase(SimObject):

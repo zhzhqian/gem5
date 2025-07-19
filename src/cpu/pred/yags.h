@@ -33,7 +33,8 @@ class YagsBP : public BPredUnit
     YagsBP(const YagsBPParams &params);
     bool lookup(ThreadID tid, Addr pc, void * &bp_history) override;
     void updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
-                         Addr target,  void * &bp_history) override;
+                         Addr target, const StaticInstPtr &inst,
+                         void * &bp_history) override;
     void squash(ThreadID tid, void * &bp_history) override;
     void update(ThreadID tid, Addr pc, bool taken,
                 void * &bp_history, bool squashed,
