@@ -101,6 +101,36 @@ class RemoteGDB : public BaseRemoteGDB
           VecElem v[NumVecV8ArchRegs * NumVecElemPerNeonVecReg];
           uint32_t fpsr;
           uint32_t fpcr;
+          // System registers
+          uint32_t currentel;
+          uint32_t spsel;
+          uint32_t daif;
+          uint32_t nzcv;
+          uint64_t tpidr_el0;
+          uint64_t tpidr_el1;
+          uint64_t tpidr_el2;
+          uint64_t tpidr_el3;
+          uint64_t tpidrro_el0;
+          uint64_t sctlr_el1;
+          uint64_t sctlr_el2;
+          uint64_t ttbr0_el1;
+          uint64_t ttbr1_el1;
+          uint64_t ttbr0_el2;
+          uint64_t ttbr1_el2;
+          uint64_t tcr_el1;
+          uint64_t tcr_el2;
+          uint64_t mair_el1;
+          uint64_t esr_el1;
+          uint64_t esr_el2;
+          uint64_t far_el1;
+          uint64_t far_el2;
+          uint64_t elr_el1;
+          uint64_t elr_el2;
+          uint64_t spsr_el1;
+          uint64_t spsr_el2;
+          uint64_t vbar_el1;
+          uint64_t vbar_el2;
+          uint64_t hcr_el2;
         } r;
       public:
         char *data() override { return (char *)&r; }

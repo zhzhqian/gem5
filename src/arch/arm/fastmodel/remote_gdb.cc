@@ -59,6 +59,37 @@ FastmodelRemoteGDB::AArch64GdbRegCache::setRegs(ThreadContext *context) const
 
     context->setMiscRegNoEffect(MISCREG_FPSR, r.fpsr);
     context->setMiscRegNoEffect(MISCREG_FPCR, r.fpcr);
+
+    // System registers
+    context->setMiscRegNoEffect(MISCREG_CURRENTEL, r.currentel);
+    context->setMiscRegNoEffect(MISCREG_SPSEL, r.spsel);
+    context->setMiscRegNoEffect(MISCREG_DAIF, r.daif);
+    context->setMiscRegNoEffect(MISCREG_NZCV, r.nzcv);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL0, r.tpidr_el0);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL1, r.tpidr_el1);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL2, r.tpidr_el2);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL3, r.tpidr_el3);
+    context->setMiscRegNoEffect(MISCREG_TPIDRRO_EL0, r.tpidrro_el0);
+    context->setMiscRegNoEffect(MISCREG_SCTLR_EL1, r.sctlr_el1);
+    context->setMiscRegNoEffect(MISCREG_SCTLR_EL2, r.sctlr_el2);
+    context->setMiscRegNoEffect(MISCREG_TTBR0_EL1, r.ttbr0_el1);
+    context->setMiscRegNoEffect(MISCREG_TTBR1_EL1, r.ttbr1_el1);
+    context->setMiscRegNoEffect(MISCREG_TTBR0_EL2, r.ttbr0_el2);
+    context->setMiscRegNoEffect(MISCREG_TTBR1_EL2, r.ttbr1_el2);
+    context->setMiscRegNoEffect(MISCREG_TCR_EL1, r.tcr_el1);
+    context->setMiscRegNoEffect(MISCREG_TCR_EL2, r.tcr_el2);
+    context->setMiscRegNoEffect(MISCREG_MAIR_EL1, r.mair_el1);
+    context->setMiscRegNoEffect(MISCREG_ESR_EL1, r.esr_el1);
+    context->setMiscRegNoEffect(MISCREG_ESR_EL2, r.esr_el2);
+    context->setMiscRegNoEffect(MISCREG_FAR_EL1, r.far_el1);
+    context->setMiscRegNoEffect(MISCREG_FAR_EL2, r.far_el2);
+    context->setMiscRegNoEffect(MISCREG_ELR_EL1, r.elr_el1);
+    context->setMiscRegNoEffect(MISCREG_ELR_EL2, r.elr_el2);
+    context->setMiscRegNoEffect(MISCREG_SPSR_EL1, r.spsr_el1);
+    context->setMiscRegNoEffect(MISCREG_SPSR_EL2, r.spsr_el2);
+    context->setMiscRegNoEffect(MISCREG_VBAR_EL1, r.vbar_el1);
+    context->setMiscRegNoEffect(MISCREG_VBAR_EL2, r.vbar_el2);
+    context->setMiscRegNoEffect(MISCREG_HCR_EL2, r.hcr_el2);
 }
 
 FastmodelRemoteGDB::FastmodelRemoteGDB(System *_system,

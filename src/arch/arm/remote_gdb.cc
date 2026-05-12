@@ -138,6 +138,7 @@
 #include "arch/arm/decoder.hh"
 #include "arch/arm/gdb-xml/gdb_xml_aarch64_core.hh"
 #include "arch/arm/gdb-xml/gdb_xml_aarch64_fpu.hh"
+#include "arch/arm/gdb-xml/gdb_xml_aarch64_system.hh"
 #include "arch/arm/gdb-xml/gdb_xml_aarch64_target.hh"
 #include "arch/arm/gdb-xml/gdb_xml_arm_core.hh"
 #include "arch/arm/gdb-xml/gdb_xml_arm_target.hh"
@@ -253,6 +254,37 @@ RemoteGDB::AArch64GdbRegCache::getRegs(ThreadContext *context)
     }
     r.fpsr = context->readMiscRegNoEffect(MISCREG_FPSR);
     r.fpcr = context->readMiscRegNoEffect(MISCREG_FPCR);
+
+    // System registers
+    r.currentel = context->readMiscRegNoEffect(MISCREG_CURRENTEL);
+    r.spsel = context->readMiscRegNoEffect(MISCREG_SPSEL);
+    r.daif = context->readMiscRegNoEffect(MISCREG_DAIF);
+    r.nzcv = context->readMiscRegNoEffect(MISCREG_NZCV);
+    r.tpidr_el0 = context->readMiscRegNoEffect(MISCREG_TPIDR_EL0);
+    r.tpidr_el1 = context->readMiscRegNoEffect(MISCREG_TPIDR_EL1);
+    r.tpidr_el2 = context->readMiscRegNoEffect(MISCREG_TPIDR_EL2);
+    r.tpidr_el3 = context->readMiscRegNoEffect(MISCREG_TPIDR_EL3);
+    r.tpidrro_el0 = context->readMiscRegNoEffect(MISCREG_TPIDRRO_EL0);
+    r.sctlr_el1 = context->readMiscRegNoEffect(MISCREG_SCTLR_EL1);
+    r.sctlr_el2 = context->readMiscRegNoEffect(MISCREG_SCTLR_EL2);
+    r.ttbr0_el1 = context->readMiscRegNoEffect(MISCREG_TTBR0_EL1);
+    r.ttbr1_el1 = context->readMiscRegNoEffect(MISCREG_TTBR1_EL1);
+    r.ttbr0_el2 = context->readMiscRegNoEffect(MISCREG_TTBR0_EL2);
+    r.ttbr1_el2 = context->readMiscRegNoEffect(MISCREG_TTBR1_EL2);
+    r.tcr_el1 = context->readMiscRegNoEffect(MISCREG_TCR_EL1);
+    r.tcr_el2 = context->readMiscRegNoEffect(MISCREG_TCR_EL2);
+    r.mair_el1 = context->readMiscRegNoEffect(MISCREG_MAIR_EL1);
+    r.esr_el1 = context->readMiscRegNoEffect(MISCREG_ESR_EL1);
+    r.esr_el2 = context->readMiscRegNoEffect(MISCREG_ESR_EL2);
+    r.far_el1 = context->readMiscRegNoEffect(MISCREG_FAR_EL1);
+    r.far_el2 = context->readMiscRegNoEffect(MISCREG_FAR_EL2);
+    r.elr_el1 = context->readMiscRegNoEffect(MISCREG_ELR_EL1);
+    r.elr_el2 = context->readMiscRegNoEffect(MISCREG_ELR_EL2);
+    r.spsr_el1 = context->readMiscRegNoEffect(MISCREG_SPSR_EL1);
+    r.spsr_el2 = context->readMiscRegNoEffect(MISCREG_SPSR_EL2);
+    r.vbar_el1 = context->readMiscRegNoEffect(MISCREG_VBAR_EL1);
+    r.vbar_el2 = context->readMiscRegNoEffect(MISCREG_VBAR_EL2);
+    r.hcr_el2 = context->readMiscRegNoEffect(MISCREG_HCR_EL2);
 }
 
 void
@@ -283,6 +315,37 @@ RemoteGDB::AArch64GdbRegCache::setRegs(ThreadContext *context) const
     }
     context->setMiscRegNoEffect(MISCREG_FPSR, r.fpsr);
     context->setMiscRegNoEffect(MISCREG_FPCR, r.fpcr);
+
+    // System registers
+    context->setMiscRegNoEffect(MISCREG_CURRENTEL, r.currentel);
+    context->setMiscRegNoEffect(MISCREG_SPSEL, r.spsel);
+    context->setMiscRegNoEffect(MISCREG_DAIF, r.daif);
+    context->setMiscRegNoEffect(MISCREG_NZCV, r.nzcv);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL0, r.tpidr_el0);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL1, r.tpidr_el1);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL2, r.tpidr_el2);
+    context->setMiscRegNoEffect(MISCREG_TPIDR_EL3, r.tpidr_el3);
+    context->setMiscRegNoEffect(MISCREG_TPIDRRO_EL0, r.tpidrro_el0);
+    context->setMiscRegNoEffect(MISCREG_SCTLR_EL1, r.sctlr_el1);
+    context->setMiscRegNoEffect(MISCREG_SCTLR_EL2, r.sctlr_el2);
+    context->setMiscRegNoEffect(MISCREG_TTBR0_EL1, r.ttbr0_el1);
+    context->setMiscRegNoEffect(MISCREG_TTBR1_EL1, r.ttbr1_el1);
+    context->setMiscRegNoEffect(MISCREG_TTBR0_EL2, r.ttbr0_el2);
+    context->setMiscRegNoEffect(MISCREG_TTBR1_EL2, r.ttbr1_el2);
+    context->setMiscRegNoEffect(MISCREG_TCR_EL1, r.tcr_el1);
+    context->setMiscRegNoEffect(MISCREG_TCR_EL2, r.tcr_el2);
+    context->setMiscRegNoEffect(MISCREG_MAIR_EL1, r.mair_el1);
+    context->setMiscRegNoEffect(MISCREG_ESR_EL1, r.esr_el1);
+    context->setMiscRegNoEffect(MISCREG_ESR_EL2, r.esr_el2);
+    context->setMiscRegNoEffect(MISCREG_FAR_EL1, r.far_el1);
+    context->setMiscRegNoEffect(MISCREG_FAR_EL2, r.far_el2);
+    context->setMiscRegNoEffect(MISCREG_ELR_EL1, r.elr_el1);
+    context->setMiscRegNoEffect(MISCREG_ELR_EL2, r.elr_el2);
+    context->setMiscRegNoEffect(MISCREG_SPSR_EL1, r.spsr_el1);
+    context->setMiscRegNoEffect(MISCREG_SPSR_EL2, r.spsr_el2);
+    context->setMiscRegNoEffect(MISCREG_VBAR_EL1, r.vbar_el1);
+    context->setMiscRegNoEffect(MISCREG_VBAR_EL2, r.vbar_el2);
+    context->setMiscRegNoEffect(MISCREG_HCR_EL2, r.hcr_el2);
 }
 
 void
@@ -360,6 +423,7 @@ RemoteGDB::getXferFeaturesRead(const std::string &annex, std::string &output)
         GDB_XML("target.xml", gdb_xml_aarch64_target),
         GDB_XML("aarch64-core.xml", gdb_xml_aarch64_core),
         GDB_XML("aarch64-fpu.xml", gdb_xml_aarch64_fpu),
+        GDB_XML("aarch64-system.xml", gdb_xml_aarch64_system),
     };
 #undef GDB_XML
     auto& annexMap = inAArch64(context()) ? annexMap64 : annexMap32;

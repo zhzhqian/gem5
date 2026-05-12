@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!-- Copyright (c) 2025 ARM Limited
+
+     Copying and distribution of this file, with or without modification,
+     are permitted in any medium without royalty provided the copyright
+     notice and this notice are preserved.  -->
+
+<!DOCTYPE feature SYSTEM "gdb-target.dtd">
+<feature name="org.gem5.aarch64.system">
+  <reg name="currentel" bitsize="32" regnum="68"/>
+  <reg name="spsel" bitsize="32"/>
+  <reg name="daif" bitsize="32"/>
+  <reg name="nzcv" bitsize="32"/>
+  <reg name="tpidr_el0" bitsize="64"/>
+  <reg name="tpidr_el1" bitsize="64"/>
+  <reg name="tpidr_el2" bitsize="64"/>
+  <reg name="tpidr_el3" bitsize="64"/>
+  <reg name="tpidrro_el0" bitsize="64"/>
+  <reg name="sctlr_el1" bitsize="64"/>
+  <reg name="sctlr_el2" bitsize="64"/>
+  <reg name="ttbr0_el1" bitsize="64"/>
+  <reg name="ttbr1_el1" bitsize="64"/>
+  <reg name="ttbr0_el2" bitsize="64"/>
+  <reg name="ttbr1_el2" bitsize="64"/>
+  <reg name="tcr_el1" bitsize="64"/>
+  <reg name="tcr_el2" bitsize="64"/>
+  <reg name="mair_el1" bitsize="64"/>
+  <reg name="esr_el1" bitsize="64"/>
+  <reg name="esr_el2" bitsize="64"/>
+  <reg name="far_el1" bitsize="64"/>
+  <reg name="far_el2" bitsize="64"/>
+  <reg name="elr_el1" bitsize="64"/>
+  <reg name="elr_el2" bitsize="64"/>
+  <reg name="spsr_el1" bitsize="64"/>
+  <reg name="spsr_el2" bitsize="64"/>
+  <reg name="vbar_el1" bitsize="64"/>
+  <reg name="vbar_el2" bitsize="64"/>
+  <reg name="hcr_el2" bitsize="64"/>
+</feature>

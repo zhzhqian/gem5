@@ -53,3 +53,8 @@ GdbXml(
     tags=['arm isa']
 )
 GdbXml('aarch64-fpu.xml', 'gdb_xml_aarch64_fpu', tags=['arm isa'])
+GdbXml(
+    'aarch64-system.xml',
+    'gdb_xml_aarch64_system',
+    tags=['arm isa']
+)
