@@ -171,6 +171,8 @@ class ISA : public BaseISA
 
     int flattenMiscIndex(int reg) const;
 
+    RegIndex miscRegToRmiscReg(RegIndex idx) const override;
+
     /**
      * Returns the enconcing equivalent when VHE is implemented and
      * HCR_EL2.E2H is enabled and executing at EL2

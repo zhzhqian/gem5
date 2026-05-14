@@ -40,6 +40,7 @@
 #ifndef __ARCH_GENERIC_ISA_HH__
 #define __ARCH_GENERIC_ISA_HH__
 
+#include <limits>
 #include <vector>
 
 #include "arch/generic/pcstate.hh"
@@ -80,6 +81,17 @@ class BaseISA : public SimObject
 
     virtual void setMiscRegNoEffect(RegIndex idx, RegVal val) = 0;
     virtual void setMiscReg(RegIndex idx, RegVal val) = 0;
+
+    /**
+     * If the given MiscReg maps to a renameable misc register (RMiscReg),
+     * return the RMiscReg index. Otherwise return a sentinel value
+     * (std::numeric_limits<RegIndex>::max()).
+     * Used to synchronize RMiscReg state when MiscReg is written directly
+     * (e.g., via syscall or checkpoint restore).
+     */
+    virtual RegIndex miscRegToRmiscReg(RegIndex idx) const {
+        return std::numeric_limits<RegIndex>::max();
+    }
 
     virtual void takeOverFrom(ThreadContext *new_tc, ThreadContext *old_tc) {}
     virtual void setThreadContext(ThreadContext *_tc) { tc = _tc; }

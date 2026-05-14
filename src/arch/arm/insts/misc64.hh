@@ -41,6 +41,7 @@
 #include "arch/arm/insts/static_inst.hh"
 #include "arch/arm/insts/wfx.hh"
 #include "arch/arm/mmu.hh"
+#include "arch/arm/regs/rmisc_reg.hh"
 #include "arch/arm/tlbi_op.hh"
 #include "arch/arm/types.hh"
 
@@ -250,6 +251,68 @@ class RegMiscRegImmOp64 : public MiscRegOp64
         MiscRegOp64(mnem, _machInst, __opClass, true),
         dest(_dest), op1(_op1)
     {}
+
+    std::string generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const override;
+
+    uint32_t iss() const override;
+};
+
+/**
+ * MRS instruction with renameable misc register source.
+ * The system register value is read through RMiscRegClass, enabling
+ * value forwarding through the physical register file in the O3 CPU.
+ * Access checks are still performed using the MiscRegIndex.
+ */
+class MrsRenamed64 : public MiscRegOp64
+{
+  public:
+    MrsRenamed64(const char *mnem, ArmISA::ExtMachInst _machInst,
+                 OpClass __opClass, RegIndex _dest,
+                 ArmISA::MiscRegIndex _op1,
+                 RegIndex _rmiscIdx);
+  private:
+    RegId destRegIdxArr[1];
+    RegId srcRegIdxArr[1];
+
+  protected:
+    RegIndex dest;                      // Integer destination register (Xd)
+    ArmISA::MiscRegIndex op1;           // MiscRegIndex for access check
+    RegIndex rmiscIdx;                  // RMiscReg index for value read
+
+    Fault execute(ExecContext *xc,
+                  trace::InstRecord *traceData) const override;
+
+    std::string generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const override;
+
+    uint32_t iss() const override;
+};
+
+/**
+ * MSR instruction with renameable misc register destination.
+ * The system register value is written through RMiscRegClass, enabling
+ * value forwarding. Also calls setMiscReg() to defer ISA state update
+ * to commit time. No IsSerializeAfter/IsNonSpeculative flags needed.
+ */
+class MsrRenamed64 : public MiscRegOp64
+{
+  public:
+    MsrRenamed64(const char *mnem, ArmISA::ExtMachInst _machInst,
+                 OpClass __opClass, ArmISA::MiscRegIndex _dest,
+                 RegIndex _op1,
+                 RegIndex _rmiscIdx);
+  private:
+    RegId destRegIdxArr[1];
+    RegId srcRegIdxArr[1];
+
+  protected:
+    ArmISA::MiscRegIndex dest;          // MiscRegIndex for access check
+    RegIndex op1;                       // Integer source register (Xn)
+    RegIndex rmiscIdx;                  // RMiscReg index for value write
+
+    Fault execute(ExecContext *xc,
+                  trace::InstRecord *traceData) const override;
 
     std::string generateDisassembly(
             Addr pc, const loader::SymbolTable *symtab) const override;

@@ -46,6 +46,7 @@
 #include "arch/arm/regs/misc.hh"
 #include "arch/arm/regs/misc_accessors.hh"
 #include "arch/arm/regs/misc_info.hh"
+#include "arch/arm/regs/rmisc_reg.hh"
 #include "arch/arm/self_debug.hh"
 #include "arch/arm/system.hh"
 #include "arch/arm/utility.hh"
@@ -97,6 +98,7 @@ ISA::ISA(const Params &p) : BaseISA(p, "arm"), system(NULL),
     _regClasses.push_back(&vecPredRegClass);
     _regClasses.push_back(&matRegClass);
     _regClasses.push_back(&ccRegClass);
+    _regClasses.push_back(&rmiscRegClass);
     _regClasses.push_back(&miscRegClass);
 
     // Hook up a dummy device if we haven't been configured with a
@@ -1515,6 +1517,21 @@ ISA::flattenMiscIndex(int reg) const
         }
     }
     return flat_idx;
+}
+
+RegIndex
+ISA::miscRegToRmiscReg(RegIndex idx) const
+{
+    switch (idx) {
+      case MISCREG_TPIDR_EL0:
+        return rmisc_reg::_TpidrEl0Idx;
+      case MISCREG_TPIDRRO_EL0:
+        return rmisc_reg::_TpidrroEl0Idx;
+      case MISCREG_TPIDR_EL1:
+        return rmisc_reg::_TpidrEl1Idx;
+      default:
+        return std::numeric_limits<RegIndex>::max();
+    }
 }
 
 BaseISADevice &

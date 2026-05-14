@@ -103,6 +103,10 @@ class PhysRegFile
     RegFile ccRegFile;
     std::vector<PhysRegId> ccRegIds;
 
+    /** Renameable misc register file. */
+    RegFile rMiscRegFile;
+    std::vector<PhysRegId> rMiscRegIds;
+
     /** Misc Reg Ids */
     std::vector<PhysRegId> miscRegIds;
 
@@ -141,6 +145,11 @@ class PhysRegFile
      */
     unsigned numPhysicalCCRegs;
 
+    /**
+     * Number of physical renameable misc registers
+     */
+    unsigned numPhysicalRMiscRegs;
+
     /** Total number of physical registers. */
     unsigned totalNumRegs;
 
@@ -153,6 +162,7 @@ class PhysRegFile
                 unsigned _numPhysicalFloatRegs, unsigned _numPhysicalVecRegs,
                 unsigned _numPhysicalVecPredRegs, unsigned _numPhysicalMatRegs,
                 unsigned _numPhysicalCCRegs,
+                unsigned _numPhysicalRMiscRegs,
                 const BaseISA::RegClasses &classes);
 
     /** Returns the name of the physical register file. */
@@ -202,6 +212,9 @@ class PhysRegFile
             DPRINTF(IEW, "RegFile: Access to cc register %i has data %#x\n",
                     idx, val);
             return val;
+          case RMiscRegClass:
+            val = rMiscRegFile.reg(idx);
+            return val;
           default:
             panic("Unsupported register class type %d.", type);
         }
@@ -239,6 +252,9 @@ class PhysRegFile
                     "data %s\n", idx, matRegFile.regClass.valString(val));
             break;
           case CCRegClass:
+            *(RegVal *)val = getReg(phys_reg);
+            break;
+          case RMiscRegClass:
             *(RegVal *)val = getReg(phys_reg);
             break;
           default:
@@ -293,6 +309,9 @@ class PhysRegFile
             DPRINTF(IEW, "RegFile: Setting cc register %i to %#x\n",
                     idx, val);
             break;
+          case RMiscRegClass:
+            rMiscRegFile.reg(idx) = val;
+            break;
           default:
             panic("Unsupported register class type %d.", type);
         }
@@ -330,6 +349,9 @@ class PhysRegFile
             matRegFile.set(idx, val);
             break;
           case CCRegClass:
+            setReg(phys_reg, *(RegVal *)val);
+            break;
+          case RMiscRegClass:
             setReg(phys_reg, *(RegVal *)val);
             break;
           default:

@@ -43,6 +43,8 @@
 
 #include "cpu/o3/cpu.hh"
 
+#include <limits>
+
 #include "cpu/activity.hh"
 #include "cpu/checker/cpu.hh"
 #include "cpu/checker/thread_context.hh"
@@ -91,6 +93,7 @@ CPU::CPU(const BaseO3CPUParams &params)
       regFile(this, params.numPhysIntRegs, params.numPhysFloatRegs,
               params.numPhysVecRegs, params.numPhysVecPredRegs,
               params.numPhysMatRegs, params.numPhysCCRegs,
+              params.numPhysRMiscRegs,
               params.isa[0]->regClasses()),
 
       freeList(name() + ".freelist", &regFile),
@@ -247,7 +250,7 @@ CPU::CPU(const BaseO3CPUParams &params)
     // Initialize rename map to assign physical registers to the
     // architectural registers for active threads only.
     for (ThreadID tid = 0; tid < active_threads; tid++) {
-        for (auto type = (RegClassType)0; type <= CCRegClass;
+        for (auto type = (RegClassType)0; type <= RMiscRegClass;
                 type = (RegClassType)(type + 1)) {
             for (auto &id: *regClasses.at(type)) {
                 // Note that we can't use the rename() method because we don't
@@ -256,6 +259,22 @@ CPU::CPU(const BaseO3CPUParams &params)
                 renameMap[tid].setEntry(id, phys_reg);
                 commitRenameMap[tid].setEntry(id, phys_reg);
             }
+        }
+
+        // Initialize RMiscReg physical registers from ISA state.
+        // At construction time, TPIDR values are typically 0, but
+        // this ensures consistency if the ISA has been configured.
+        for (auto &id: *regClasses.at(RMiscRegClass)) {
+            RegVal val = 0;
+            for (RegIndex mr = 0; mr < regClasses.at(MiscRegClass)->numRegs();
+                    mr++) {
+                if (isa[tid]->miscRegToRmiscReg(mr) == id.index()) {
+                    val = isa[tid]->readMiscRegNoEffect(mr);
+                    break;
+                }
+            }
+            PhysRegIdPtr phys_reg = renameMap[tid].lookup(id);
+            regFile.setReg(phys_reg, val);
         }
     }
 
@@ -615,13 +634,33 @@ CPU::insertThread(ThreadID tid)
     //Bind Int Regs to Rename Map
     const auto &regClasses = isa[tid]->regClasses();
 
-    for (auto type = (RegClassType)0; type <= CCRegClass;
+    for (auto type = (RegClassType)0; type <= RMiscRegClass;
             type = (RegClassType)(type + 1)) {
         for (auto &id: *regClasses.at(type)) {
             PhysRegIdPtr phys_reg = freeList.getReg(type);
             renameMap[tid].setEntry(id, phys_reg);
             scoreboard.setReg(phys_reg);
         }
+    }
+
+    // Initialize RMiscReg physical registers from the ISA's MiscReg state.
+    // This ensures that the renamed TPIDR values match the architectural
+    // state at thread insertion time.
+    for (auto &id: *regClasses.at(RMiscRegClass)) {
+        // Find the MiscRegIndex that corresponds to this RMiscReg.
+        // The ISA provides a reverse mapping via flattenMiscIndex.
+        // We iterate through MiscRegs and check if any maps to this
+        // RMiscReg index.
+        RegVal val = 0;
+        for (RegIndex mr = 0; mr < regClasses.at(MiscRegClass)->numRegs();
+                mr++) {
+            if (isa[tid]->miscRegToRmiscReg(mr) == id.index()) {
+                val = isa[tid]->readMiscRegNoEffect(mr);
+                break;
+            }
+        }
+        PhysRegIdPtr phys_reg = renameMap[tid].lookup(id);
+        regFile.setReg(phys_reg, val);
     }
 
     //Copy Thread Data Into RegFile
@@ -956,6 +995,15 @@ void
 CPU::setMiscRegNoEffect(int misc_reg, RegVal val, ThreadID tid)
 {
     isa[tid]->setMiscRegNoEffect(misc_reg, val);
+
+    // Also update the RMiscReg if this MiscReg is renameable.
+    RegIndex rmisc_idx = isa[tid]->miscRegToRmiscReg(misc_reg);
+    if (rmisc_idx != std::numeric_limits<RegIndex>::max()) {
+        const auto &regClasses = isa[tid]->regClasses();
+        RegId rmisc_reg_id = (*regClasses.at(RMiscRegClass))[rmisc_idx];
+        PhysRegIdPtr phys_reg = commitRenameMap[tid].lookup(rmisc_reg_id);
+        regFile.setReg(phys_reg, val);
+    }
 }
 
 void
@@ -963,6 +1011,18 @@ CPU::setMiscReg(int misc_reg, RegVal val, ThreadID tid)
 {
     executeStats[tid]->numMiscRegWrites++;
     isa[tid]->setMiscReg(misc_reg, val);
+
+    // If this MiscReg maps to a renameable misc register, also update the
+    // architectural RMiscReg in the commit rename map and physical reg file.
+    // This handles direct writes (syscalls, checkpoint restore) that bypass
+    // the normal MSR instruction path.
+    RegIndex rmisc_idx = isa[tid]->miscRegToRmiscReg(misc_reg);
+    if (rmisc_idx != std::numeric_limits<RegIndex>::max()) {
+        const auto &regClasses = isa[tid]->regClasses();
+        RegId rmisc_reg_id = (*regClasses.at(RMiscRegClass))[rmisc_idx];
+        PhysRegIdPtr phys_reg = commitRenameMap[tid].lookup(rmisc_reg_id);
+        regFile.setReg(phys_reg, val);
+    }
 }
 
 RegVal

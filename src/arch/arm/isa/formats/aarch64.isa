@@ -295,6 +295,40 @@ namespace Aarch64
         }
     }
 
+    /**
+     * Check if a MiscRegIndex corresponds to a TPIDR register that
+     * should use the renamed (RMiscReg) path for value forwarding.
+     */
+    inline bool isTpidrReg(MiscRegIndex miscReg)
+    {
+        switch (miscReg) {
+          case MISCREG_TPIDR_EL0:
+          case MISCREG_TPIDRRO_EL0:
+          case MISCREG_TPIDR_EL1:
+            return true;
+          default:
+            return false;
+        }
+    }
+
+    /**
+     * Map a TPIDR MiscRegIndex to its RMiscReg index.
+     * Must only be called when isTpidrReg() returns true.
+     */
+    inline RegIndex tpidrRmiscIndex(MiscRegIndex miscReg)
+    {
+        switch (miscReg) {
+          case MISCREG_TPIDR_EL0:
+            return rmisc_reg::_TpidrEl0Idx;
+          case MISCREG_TPIDRRO_EL0:
+            return rmisc_reg::_TpidrroEl0Idx;
+          case MISCREG_TPIDR_EL1:
+            return rmisc_reg::_TpidrEl1Idx;
+          default:
+            panic("Not a TPIDR register: %d\n", miscReg);
+        }
+    }
+
     StaticInstPtr
     decodeSys(ExtMachInst machInst, bool dvmEnabled)
     {
@@ -346,7 +380,11 @@ namespace Aarch64
                     return new Unknown64(machInst);
                   default: {
                     StaticInstPtr si = nullptr;
-                    if (miscRegClass.isSerializing(miscRegClass[miscReg])) {
+                    if (isTpidrReg(miscReg)) {
+                        si = new MrsRenamed64("mrsrename", machInst, IntAluOp,
+                                              rt, miscReg,
+                                              tpidrRmiscIndex(miscReg));
+                    } else if (miscRegClass.isSerializing(miscRegClass[miscReg])) {
                         si = new Mrs64(machInst, rt, miscReg);
                     } else {
                         si = new MrsNonSer64(machInst, rt, miscReg);
@@ -474,7 +512,11 @@ namespace Aarch64
                     return new At64Hub(machInst, miscReg,
                       MiscRegIndex::MISCREG_PAR_EL1, rt);
                   default:
-                    if (miscRegClass.isSerializing(miscRegClass[miscReg])) {
+                    if (isTpidrReg(miscReg)) {
+                        return new MsrRenamed64("msrrename", machInst, IntAluOp,
+                                                miscReg, rt,
+                                                tpidrRmiscIndex(miscReg));
+                    } else if (miscRegClass.isSerializing(miscRegClass[miscReg])) {
                         return new Msr64(machInst, miscReg, rt);
                     } else {
                         return new MsrNonSer64(machInst, miscReg, rt);

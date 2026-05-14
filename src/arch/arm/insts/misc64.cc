@@ -38,6 +38,8 @@
 #include "arch/arm/insts/misc64.hh"
 #include "arch/arm/isa.hh"
 
+#include "arch/arm/regs/misc_info.hh"
+#include "arch/arm/regs/rmisc_reg.hh"
 #include "arch/arm/tlbi_op.hh"
 #include "debug/MiscRegs.hh"
 
@@ -204,6 +206,133 @@ RegMiscRegImmOp64::iss() const
     const auto misc_reg = encodeAArch64SysReg(op1);
     assert(misc_reg.has_value());
     return _iss(misc_reg.value(), dest);
+}
+
+MrsRenamed64::MrsRenamed64(const char *mnem, ExtMachInst machInst,
+                           OpClass __opClass, RegIndex _dest,
+                           MiscRegIndex _op1, RegIndex _rmiscIdx)
+    : MiscRegOp64(mnem, machInst, __opClass, true),
+      dest(_dest), op1(_op1), rmiscIdx(_rmiscIdx)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+
+	_numTypedDestRegs[intRegClass.type()]++;
+        setSrcRegIdx(_numSrcRegs++, rmiscRegClass[rmiscIdx]);
+        setDestRegIdx(_numDestRegs++, gem5::ArmISA::couldBeZero(op1) ? RegId() : intRegClass[_dest]);
+	flags[IsInteger] = true;
+	// flags[IsSerializeBefore] = true;;
+}
+
+Fault
+MrsRenamed64::execute(ExecContext *xc, trace::InstRecord *traceData) const
+{
+    auto tc = xc->tcBase();
+    const CPSR cpsr = tc->readMiscReg(MISCREG_CPSR);
+
+    // Access check using the MiscRegIndex
+    auto pre_flat = (MiscRegIndex)snsBankedIndex64(op1, tc);
+    auto *isa = static_cast<ArmISA::ISA *>(tc->getIsaPtr());
+    auto flat_idx = (MiscRegIndex)isa->flattenMiscIndex(pre_flat);
+
+    Fault fault;
+    if ((fault = checkFaultAccessAArch64SysReg(flat_idx, cpsr, tc, *this)))
+        return fault;
+
+    // Read the value from the renamed RMiscReg physical register
+    RegVal val = xc->getRegOperand(this, 0);
+    xc->setRegOperand(this, 0, val);
+
+    return NoFault;
+}
+
+std::string
+MrsRenamed64::generateDisassembly(Addr pc,
+                                  const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    printMnemonic(ss);
+    printIntReg(ss, dest);
+    ss << ", ";
+    printMiscReg(ss, op1);
+    return ss.str();
+}
+
+uint32_t
+MrsRenamed64::iss() const
+{
+    const auto misc_reg = encodeAArch64SysReg(op1);
+    assert(misc_reg.has_value());
+    return _iss(misc_reg.value(), dest);
+}
+
+MsrRenamed64::MsrRenamed64(const char *mnem, ExtMachInst machInst,
+                           OpClass __opClass, MiscRegIndex _dest,
+                           RegIndex _op1, RegIndex _rmiscIdx)
+    : MiscRegOp64(mnem, machInst, __opClass, false),
+      dest(_dest), op1(_op1), rmiscIdx(_rmiscIdx)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+    _numTypedDestRegs[miscRegClass.type()]++;
+    setSrcRegIdx(_numSrcRegs++, gem5::ArmISA::couldBeZero(op1) ? RegId() : intRegClass[op1]);
+    setDestRegIdx(_numDestRegs++, rmiscRegClass[rmiscIdx]);
+    flags[IsInteger] = true;
+    // flags[IsNonSpeculative] = true;
+    // flags[IsSerializeAfter] = true;;
+
+}
+
+Fault
+MsrRenamed64::execute(ExecContext *xc, trace::InstRecord *traceData) const
+{
+    auto tc = xc->tcBase();
+    const CPSR cpsr = tc->readMiscReg(MISCREG_CPSR);
+
+    // Access check using the MiscRegIndex
+    auto pre_flat = (MiscRegIndex)snsBankedIndex64(dest, tc);
+    auto *isa = static_cast<ArmISA::ISA *>(tc->getIsaPtr());
+    auto flat_idx = (MiscRegIndex)isa->flattenMiscIndex(pre_flat);
+
+    Fault fault;
+    if ((fault = checkFaultAccessAArch64SysReg(flat_idx, cpsr, tc, *this)))
+        return fault;
+
+    RegVal val = xc->getRegOperand(this, 0);
+
+    // Write to the renamed RMiscReg physical register (for forwarding)
+    xc->setRegOperand(this, 0, val);
+
+    // Defer ISA state update to commit time (via DynInst::setMiscReg)
+    xc->setMiscReg(flat_idx, val);
+
+    return NoFault;
+}
+
+std::string
+MsrRenamed64::generateDisassembly(Addr pc,
+                                  const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    printMnemonic(ss);
+    printMiscReg(ss, dest);
+    ss << ", ";
+    printIntReg(ss, op1);
+    return ss.str();
+}
+
+uint32_t
+MsrRenamed64::iss() const
+{
+    const auto misc_reg = encodeAArch64SysReg(dest);
+    assert(misc_reg.has_value());
+    return _iss(misc_reg.value(), op1);
 }
 
 Fault

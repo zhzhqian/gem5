@@ -47,7 +47,9 @@
 #include <vector>
 
 #include "arch/arm/regs/misc.hh"
+#include "arch/arm/regs/rmisc_reg.hh"
 #include "arch/arm/types.hh"
+#include "base/cprintf.hh"
 #include "cpu/reg_class.hh"
 #include "debug/MiscRegs.hh"
 #include "sim/faults.hh"
@@ -605,6 +607,28 @@ inline constexpr RegClass miscRegClass =
     RegClass(MiscRegClass, MiscRegClassName, NUM_MISCREGS,
             debug::MiscRegs).
         ops(miscRegClassOps);
+
+class RMiscRegClassOps : public RegClassOps
+{
+  public:
+    std::string
+    regName(const RegId &id) const override
+    {
+        static const char* names[] = {
+            "tpidr_el0", "tpidrro_el0", "tpidr_el1"
+        };
+        if (id.index() < sizeof(names) / sizeof(names[0]))
+            return names[id.index()];
+        return csprintf("rmisc_reg_%d", id.index());
+    }
+};
+
+inline RMiscRegClassOps rmiscRegClassOps;
+
+inline constexpr RegClass rmiscRegClass =
+    RegClass(RMiscRegClass, RMiscRegClassName, rmisc_reg::NumRegs,
+            debug::MiscRegs).
+        ops(rmiscRegClassOps);
 
 } // namespace ArmISA
 

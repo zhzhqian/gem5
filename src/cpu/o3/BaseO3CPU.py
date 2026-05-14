@@ -184,6 +184,7 @@ class BaseO3CPU(BaseCPU):
     numPhysMatRegs = Param.Unsigned(2, "Number of physical matrix registers")
     # most ISAs don't use condition-code regs, so default is 0
     numPhysCCRegs = Param.Unsigned(0, "Number of physical cc registers")
+    numPhysRMiscRegs = Param.Unsigned(25, "Number of physical renameable misc registers")
     instQueues = VectorParam.IQUnit(IQUnit(), "Vector of IQs")
     numROBEntries = Param.Unsigned(192, "Number of reorder buffer entries")
 
