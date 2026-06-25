@@ -581,7 +581,18 @@ class Fetch
         statistics::Formula idleRate;
         /*Number of fetch target processed per cycle*/
         statistics::Distribution ftNumber;
+        /** Top-Down: unfilled fetch slots (no instruction delivered to decode) */
+        statistics::Scalar fetchBubbles;
+        /** Top-Down: cycles where zero instructions delivered to decode */
+        statistics::Scalar fetchFullStallCycles;
     } fetchStats;
+
+  public:
+    const FetchStatGroup &
+    getStats() const
+    {
+        return fetchStats;
+    }
 };
 
 } // namespace o3

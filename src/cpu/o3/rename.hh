@@ -483,6 +483,10 @@ class Rename
      */
     void incrFullStat(const FullSource &source);
 
+    bool wait_for_refill;
+    Cycles last_squash_cycles;
+    const int refillPenalty;
+
     struct RenameStats : public statistics::Group
     {
         static std::string statusStrings[ThreadStatusMax];
@@ -536,7 +540,38 @@ class Rename
         statistics::Scalar intReturned;
         /** Number of registers freed and written back to floating point free list*/
         statistics::Scalar fpReturned;
+        /** Top-Down: cycles where rename stalls due to pending stores */
+        statistics::Scalar storeStalls;
+        /** Top-Down: unfilled rename slots due to frontend undersupply
+         * (excluding squash refill window) */
+        statistics::Scalar fetchBubbles;
+        /** Top-Down: cycles where zero instructions were delivered to
+         * rename (excluding squash refill window) */
+        statistics::Scalar fetchFullStallCycles;
+        /** Top-Down: unfilled slots during pipeline refill after squash */
+        statistics::Scalar refillBubbles;
     } stats;
+
+  public:
+
+  void addIdleCycles(Cycles c);
+    RenameStats &
+    getStats()
+    {
+        return stats;
+    }
+
+    unsigned
+    getWidth() const
+    {
+        return renameWidth;
+    }
+
+    int
+    getDecodeToRenameDelay()
+    {
+        return decodeToRenameDelay;
+    }
 };
 
 } // namespace o3

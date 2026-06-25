@@ -45,6 +45,9 @@
 
 #include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
+#include <algorithm>
+
+#include "cpu/o3/fu_pool.hh"
 #include "cpu/o3/limits.hh"
 #include "cpu/reg_class.hh"
 #include "debug/Activity.hh"
@@ -86,6 +89,8 @@ Rename::Rename(CPU *_cpu, const BaseO3CPUParams &params)
       commitToRenameDelay(params.commitToRenameDelay),
       renameWidth(params.renameWidth),
       numThreads(params.numThreads),
+      wait_for_refill(false),
+      refillPenalty(params.fetchToDecodeDelay + params.decodeToRenameDelay),
       stats(_cpu)
 {
     if (renameWidth > MaxWidth)
@@ -106,6 +111,7 @@ Rename::Rename(CPU *_cpu, const BaseO3CPUParams &params)
         stalls[tid] = {false, false};
         serializeInst[tid] = nullptr;
         serializeOnNextInst[tid] = false;
+        last_squash_cycles = Cycles(0);
     }
 }
 
@@ -157,13 +163,26 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
                "count of temporary serializing insts renamed"),
       ADD_STAT(skidInsts, statistics::units::Count::get(),
                "count of insts added to the skid buffer"),
-      ADD_STAT(intReturned, statistics::units::Count::get(),
-               "count of registers freed and written back to integer free list"),
+      ADD_STAT(
+          intReturned, statistics::units::Count::get(),
+          "count of registers freed and written back to integer free list"),
       ADD_STAT(fpReturned, statistics::units::Count::get(),
-               "count of registers freed and written back to floating point free list")
-
+               "count of registers freed and written back to floating point "
+               "free list"),
+      ADD_STAT(storeStalls, statistics::units::Cycle::get(),
+               "Cycles where rename stalls due to pending stores "
+               "(Top-Down store bound)"),
+      ADD_STAT(fetchBubbles, statistics::units::Count::get(),
+               "Total unfilled rename slots due to frontend "
+               "undersupply (excluding squash refill window)"),
+      ADD_STAT(fetchFullStallCycles, statistics::units::Count::get(),
+               "Cycles where zero instructions were delivered to "
+               "rename (excluding squash refill window)"),
+      ADD_STAT(refillBubbles, statistics::units::Count::get(),
+               "Unfilled rename slots during the pipeline refill "
+               "window after a squash (attributed to bad speculation)")
 {
-    status.init(ThreadStatusMax).flags(statistics::pdf | statistics::nozero);
+    status.init(ThreadStatusMax).flags(statistics::pdf | statistics::nozero | statistics::total);
     for (int i = 0; i < ThreadStatusMax; ++i) {
         status.subname(i, statusStrings[i]);
         status.subdesc(i, statusDefinitions[i]);
@@ -194,6 +213,36 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
 
     intReturned.prereq(intReturned);
     fpReturned.prereq(fpReturned);
+    storeStalls.prereq(storeStalls);
+}
+
+void
+Rename::addIdleCycles(Cycles c)
+{
+    if (renameStatus[0] == Running || renameStatus[0] == Idle) {
+
+        if ((cpu->curCycle() - last_squash_cycles) < refillPenalty) {
+            stats.refillBubbles += c * renameWidth;
+            DPRINTF(Rename, "[TDM] addIdleCycles: refill path, "
+                    "c=%llu renameWidth=%u curCycle=%llu "
+                    "lastSquash=%llu refillPenalty=%d "
+                    "refillBubbles=%llu\n",
+                    (uint64_t)c, renameWidth, cpu->curCycle(),
+                    last_squash_cycles, refillPenalty,
+                    (uint64_t)stats.refillBubbles.value());
+        } else {
+            stats.fetchBubbles += c * renameWidth;
+            stats.fetchFullStallCycles += (int)c;
+            DPRINTF(Rename, "[TDM] addIdleCycles: fetchBubbles path, "
+                    "c=%llu renameWidth=%u curCycle=%llu "
+                    "lastSquash=%llu fetchBubbles=%llu "
+                    "fetchFullStallCycles=%llu\n",
+                    (uint64_t)c, renameWidth, cpu->curCycle(),
+                    last_squash_cycles,
+                    (uint64_t)stats.fetchBubbles.value(),
+                    (uint64_t)stats.fetchFullStallCycles.value());
+        }
+    }
 }
 
 void
@@ -539,6 +588,38 @@ Rename::renameInsts(ThreadID tid)
     int insts_available = renameStatus[tid] == Unblocking ?
         skidBuffer[tid].size() : insts[tid].size();
 
+    if (insts_available < renameWidth) {
+        // Check whether no instructions are delivered because of a recent
+        // misprediction.
+        DPRINTF(Rename, "[tid:%i] Only %i available: Last Sq @ %llu\n",
+                tid, insts_available, last_squash_cycles);
+        if ((cpu->curCycle() - last_squash_cycles) < refillPenalty) {
+            // assert(insts_available == 0);
+            stats.refillBubbles += (renameWidth - insts_available);
+            DPRINTF(Rename, "[TDM] renameInsts: refill path, "
+                    "tid=%i instsAvail=%i renameWidth=%u "
+                    "bubbles=%u curCycle=%llu lastSquash=%llu "
+                    "refillPenalty=%d refillBubbles=%llu\n",
+                    tid, insts_available, renameWidth,
+                    renameWidth - insts_available, cpu->curCycle(),
+                    last_squash_cycles, refillPenalty,
+                    (uint64_t)stats.refillBubbles.value());
+        } else {
+            stats.fetchBubbles += (renameWidth - insts_available);
+            if (insts_available == 0)
+                stats.fetchFullStallCycles++;
+            DPRINTF(Rename, "[TDM] renameInsts: fetchBubbles path, "
+                    "tid=%i instsAvail=%i renameWidth=%u "
+                    "bubbles=%u curCycle=%llu lastSquash=%llu "
+                    "fetchBubbles=%llu fetchFullStallCycles=%llu\n",
+                    tid, insts_available, renameWidth,
+                    renameWidth - insts_available, cpu->curCycle(),
+                    last_squash_cycles,
+                    (uint64_t)stats.fetchBubbles.value(),
+                    (uint64_t)stats.fetchFullStallCycles.value());
+        }
+    }
+
     // Check the decode queue to see if instructions are available.
     // If there are no available instructions to rename, then do nothing.
     if (insts_available == 0) {
@@ -650,6 +731,11 @@ Rename::renameInsts(ThreadID tid)
                         tid);
                 source = SQ;
                 incrFullStat(source);
+                if (std::all_of(iew_ptr->fuPools.begin(),
+                               iew_ptr->fuPools.end(),
+                               [](FUPool *p) { return p->isDrained(); })) {
+                    stats.storeStalls++;
+                }
                 break;
             }
         }
@@ -670,6 +756,7 @@ Rename::renameInsts(ThreadID tid)
                     tid, inst->seqNum, inst->pcState());
 
             ++stats.squashedInsts;
+            stats.refillBubbles++;
 
             // Decrement how many instructions are available.
             --insts_available;
@@ -1399,17 +1486,20 @@ Rename::checkSignalsAndUpdate(ThreadID tid)
             DPRINTF(Rename,
                     "[tid:%i] Done squashing, switching to serialize.\n", tid);
 
+            last_squash_cycles = cpu->curCycle();
             renameStatus[tid] = SerializeStall;
             return true;
         } else if (resumeUnblocking) {
             DPRINTF(Rename,
                     "[tid:%i] Done squashing, switching to unblocking.\n",
                     tid);
+            last_squash_cycles = cpu->curCycle();
             renameStatus[tid] = Unblocking;
             return true;
         } else {
             DPRINTF(Rename, "[tid:%i] Done squashing, switching to running.\n",
                     tid);
+            last_squash_cycles = cpu->curCycle();
             renameStatus[tid] = Running;
             return false;
         }

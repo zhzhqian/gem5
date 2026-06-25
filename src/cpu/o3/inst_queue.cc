@@ -316,7 +316,19 @@ InstructionQueue::IQStats::IQStats(CPU *cpu, const unsigned &total_width)
       ADD_STAT(fuBusyRate,
                statistics::units::Rate<statistics::units::Count,
                                        statistics::units::Count>::get(),
-               "FU busy rate (busy events/executed inst)")
+               "FU busy rate (busy events/executed inst)"),
+      ADD_STAT(executionStallCycles, statistics::units::Count::get(),
+               "Cycles where busy FU count is less than issue width "
+               "(Top-Down execution stall)"),
+      ADD_STAT(loadStallCycles, statistics::units::Cycle::get(),
+               "Cycles with no uops executed and at least one "
+               "in-flight load (Top-Down memory stall)"),
+      ADD_STAT(L1miss, statistics::units::Cycle::get(),
+               "Load stall cycles where the load missed in L1"),
+      ADD_STAT(L2miss, statistics::units::Cycle::get(),
+               "Load stall cycles where the load missed in L2"),
+      ADD_STAT(L3miss, statistics::units::Cycle::get(),
+               "Load stall cycles where the load missed in L3")
 {
     instsAdded
         .prereq(instsAdded);
@@ -368,17 +380,6 @@ InstructionQueue::IQStats::IQStats(CPU *cpu, const unsigned &total_width)
         .init(0,total_width,1)
         .flags(statistics::pdf)
         ;
-/*
-    dist_unissued
-        .init(Num_OpClasses+2)
-        .name(name() + ".unissued_cause")
-        .desc("Reason ready instruction not issued")
-        .flags(pdf | dist)
-        ;
-    for (int i=0; i < (Num_OpClasses + 2); ++i) {
-        dist_unissued.subname(i, unissued_names[i]);
-    }
-*/
     issuedInstType.init(cpu->numThreads, enums::Num_OpClass)
         .flags(statistics::total | statistics::pdf | statistics::dist);
     issuedInstType.ysubnames(enums::OpClassStrings);
@@ -420,6 +421,12 @@ InstructionQueue::IQStats::IQStats(CPU *cpu, const unsigned &total_width)
         .flags(statistics::total)
         ;
     fuBusyRate = fuBusy / instsIssued;
+
+    executionStallCycles.prereq(executionStallCycles);
+
+    L1miss.prereq(L1miss);
+    L2miss.prereq(L2miss);
+    L3miss.prereq(L3miss);
 }
 
 InstructionQueue::IQIOStats::IQIOStats(statistics::Group *parent)
@@ -1025,6 +1032,32 @@ InstructionQueue::scheduleReadyInsts()
         cpu->activityThisCycle();
     } else {
         DPRINTF(IQ, "Not able to schedule any instructions.\n");
+    }
+
+    int numBusyFUs = 0;
+    bool allDrained = true;
+    for (auto *iq : iqs) {
+        numBusyFUs += iq->fuPool()->numBusyFUs();
+        if (!iq->fuPool()->isDrained())
+            allDrained = false;
+    }
+
+    if (numBusyFUs < totalWidth) {
+        iqStats.executionStallCycles++;
+    }
+
+    if (allDrained && iewStage->ldstQueue.numLoads()) {
+        iqStats.loadStallCycles++;
+        if (iewStage->ldstQueue.anyCacheLevelMisses(3)) {
+            iqStats.L1miss++;
+            iqStats.L2miss++;
+            iqStats.L3miss++;
+        } else if (iewStage->ldstQueue.anyCacheLevelMisses(2)) {
+            iqStats.L1miss++;
+            iqStats.L2miss++;
+        } else if (iewStage->ldstQueue.anyCacheLevelMisses(1)) {
+            iqStats.L1miss++;
+        }
     }
 }
 

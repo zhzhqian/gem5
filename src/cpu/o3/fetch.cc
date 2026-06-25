@@ -218,7 +218,13 @@ Fetch::FetchStatGroup::FetchStatGroup(CPU *cpu, Fetch *fetch)
       ADD_STAT(idleRate, statistics::units::Ratio::get(),
                "Ratio of cycles fetch was idle"),
       ADD_STAT(ftNumber, statistics::units::Count::get(),
-               "Number of fetch targets processed each cycle (Total)")
+               "Number of fetch targets processed each cycle (Total)"),
+      ADD_STAT(fetchBubbles, statistics::units::Count::get(),
+               "Unfilled fetch slots where no instruction was "
+               "delivered to decode (Top-Down)"),
+      ADD_STAT(fetchFullStallCycles, statistics::units::Count::get(),
+               "Cycles where zero instructions were delivered "
+               "from fetch to decode (Top-Down)")
 {
     status.init(ThreadStatusMax).flags(statistics::pdf | statistics::nozero);
     for (int i = 0; i < ThreadStatusMax; ++i) {
@@ -903,6 +909,22 @@ Fetch::tick()
         // Wrap around if at end of active threads list
         if (tid_itr == activeThreads->end())
             tid_itr = activeThreads->begin();
+    }
+
+    bool backendStall = false;
+
+    for (ThreadID i = 0; i < numThreads; ++i) {
+        if ((fetchStatus[i] == Squashing) || (stalls[i].decode) ||
+            (fetchStatus[i] == Blocked)) {
+            backendStall = true;
+        }
+    }
+
+    if (!backendStall) {
+        fetchStats.fetchBubbles += (fetchWidth - insts_to_decode);
+        if (insts_to_decode == 0) {
+            fetchStats.fetchFullStallCycles++;
+        }
     }
 
     // If there was activity this cycle, inform the CPU of it.
